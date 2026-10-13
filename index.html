@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kennisassistent</title>
+<style>
+  :root {
+    --bg: #f3f6f8; --card: #fff; --ink: #14232e; --muted: #5b6b76; --line: #d5dee4;
+    --accent: #0f6b7a; --accent-soft: #e3f1f3; --err: #a32d2d;
+    --deep: #0b2a36; --deep-2: #12404f; --on-deep: #eaf4f7; --on-deep-muted: #9fc0ca; --sea: #5cc0cf;
+    --serif: Charter, "Iowan Old Style", Georgia, serif;
+    --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0f1a21; --card: #16252e; --ink: #e6eef2; --muted: #93a5b0; --line: #2a3d49;
+            --accent: #5cc0cf; --accent-soft: #173842; --err: #f09595; --deep: #08202a; }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.55 var(--sans); }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 1.25rem; }
+  a { color: inherit; }
+  :focus-visible { outline: 3px solid var(--sea); outline-offset: 2px; }
+
+  /* Navigatie */
+  nav { background: var(--deep); position: sticky; top: 0; z-index: 10; border-bottom: 1px solid #1c4452; }
+  nav .wrap { display: flex; align-items: center; justify-content: space-between; height: 64px; }
+  .brand { display: flex; align-items: center; gap: .6rem; font: 600 1.1rem var(--serif); color: var(--on-deep); text-decoration: none; }
+  .logo { width: 28px; height: 28px; border-radius: 8px; background: var(--sea); display: grid; place-items: center; color: var(--deep); font: 700 .95rem var(--sans); }
+  .links { display: flex; gap: 1.6rem; }
+  .links a { color: var(--on-deep-muted); text-decoration: none; font-size: .95rem; }
+  .links a:hover { color: #fff; }
+  @media (max-width: 560px) { .links { gap: 1rem; } .links .hide-sm { display: none; } }
+
+  /* Hero */
+  .hero { background: linear-gradient(180deg, var(--deep) 0%, var(--deep-2) 100%); color: var(--on-deep); padding: 4.5rem 0 4rem; }
+  .hero h1 { font: 600 clamp(2.2rem, 5.5vw, 3.6rem)/1.08 var(--serif); letter-spacing: -.02em; margin: 0 0 1rem; max-width: 18ch; }
+  .hero p.lead { font-size: 1.15rem; color: var(--on-deep-muted); max-width: 52ch; margin: 0 0 2rem; }
+  form { display: flex; gap: .6rem; max-width: 720px; }
+  input[type=text] { flex: 1; min-width: 0; font: inherit; font-size: 1.1rem; padding: 1rem 1.2rem; border: 0; border-radius: 12px; background: #fff; color: #14232e; }
+  button { font: inherit; font-weight: 600; padding: 1rem 1.6rem; border: 0; border-radius: 12px; background: var(--sea); color: var(--deep); cursor: pointer; }
+  button:disabled { opacity: .6; cursor: progress; }
+  .chips { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1.1rem; max-width: 720px; }
+  .chip { font: inherit; font-size: .9rem; font-weight: 400; padding: .4rem .9rem; border-radius: 999px; border: 1px solid #2c5a6a; background: transparent; color: var(--on-deep); cursor: pointer; }
+  .chip:hover { background: #1a4a5a; }
+  @media (max-width: 560px) { form { flex-direction: column; } }
+
+  /* Status + resultaten */
+  #status { padding: 1.5rem 0 0; color: var(--muted); min-height: 1rem; }
+  #status.err { color: var(--err); }
+  .dots::after { content: ""; animation: dots 1.2s steps(4) infinite; }
+  @keyframes dots { 25% { content: "."; } 50% { content: ".."; } 75% { content: "..."; } }
+  #results { display: none; padding: 2.5rem 0 1rem; scroll-margin-top: 80px; }
+  .grid { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 2.5rem; align-items: start; }
+  @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+  h2 { font: 600 1.3rem/1.3 var(--serif); margin: 0 0 1rem; }
+  h3 { font: 600 1rem/1.3 var(--sans); margin: 0 0 .8rem; }
+  .answer { background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 10px; padding: 1.3rem 1.5rem; font: 1.1rem/1.7 var(--serif); white-space: pre-wrap; max-width: 70ch; }
+  .notice { background: var(--accent-soft); border-radius: 10px; padding: .9rem 1.1rem; font-size: .95rem; }
+  .cite { display: inline-block; min-width: 1.5rem; padding: 0 .35rem; margin: 0 .1rem; border-radius: 6px; background: var(--accent-soft); color: var(--accent); font: 600 .8rem/1.5rem var(--sans); text-align: center; text-decoration: none; vertical-align: .1em; }
+  .cite:hover { background: var(--accent); color: var(--card); }
+  .source { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: .9rem 1.1rem; margin-bottom: .7rem; scroll-margin-top: 90px; }
+  .source:target { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .src-head { display: flex; gap: .6rem; align-items: baseline; }
+  .src-n { font-weight: 700; color: var(--accent); }
+  .src-name { font-weight: 600; overflow-wrap: anywhere; }
+  .src-meta { font-size: .85rem; color: var(--muted); margin-left: auto; white-space: nowrap; }
+  details { margin-top: .5rem; }
+  summary { cursor: pointer; color: var(--accent); font-size: .92rem; }
+  .frag { margin: .6rem 0 0; font-size: .95rem; color: var(--muted); white-space: pre-wrap; border-left: 2px solid var(--line); padding-left: .8rem; }
+  aside { position: sticky; top: 90px; }
+  .doc { margin-bottom: 1rem; }
+  .doc-name { font-size: .92rem; font-weight: 600; overflow-wrap: anywhere; }
+  .doc-top .doc-name::before { content: "Beste match · "; color: var(--accent); }
+  .bar { height: 6px; background: var(--line); border-radius: 3px; margin: .35rem 0 .2rem; overflow: hidden; }
+  .bar > span { display: block; height: 100%; background: var(--accent); }
+  .doc-meta { font-size: .8rem; color: var(--muted); }
+
+  /* Uitleg */
+  .how { padding: 4rem 0; }
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem; margin-top: 1.5rem; }
+  @media (max-width: 760px) { .steps { grid-template-columns: 1fr; gap: 1.4rem; } }
+  .step { border-top: 2px solid var(--accent); padding-top: .9rem; }
+  .step b { display: block; font: 600 1.1rem var(--serif); margin-bottom: .3rem; }
+  .step span { color: var(--muted); }
+  .step i { font: 600 .85rem var(--sans); color: var(--accent); font-style: normal; }
+
+  /* Footer */
+  footer { background: var(--deep); color: var(--on-deep-muted); padding: 2rem 0; font-size: .9rem; }
+  footer .wrap { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .dots::after { animation: none; content: "..."; } }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a class="brand" href="#top"><span class="logo" id="logo">K</span><span id="brand"></span></a>
+    <div class="links">
+      <a href="#top">Zoeken</a>
+      <a href="#hoe">Hoe het werkt</a>
+      <a href="#over" class="hide-sm">Over</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero" id="top">
+  <div class="wrap">
+    <h1 id="headline"></h1>
+    <p class="lead" id="lead"></p>
+    <form id="form">
+      <input type="text" id="q" placeholder="Stel een vraag over je documenten" aria-label="Vraag" autocomplete="off">
+      <button type="submit" id="go">Zoeken</button>
+    </form>
+    <div class="chips" id="chips"></div>
+  </div>
+</header>
+
+<section id="results">
+  <div class="wrap">
+    <div class="grid">
+      <main>
+        <h2>Antwoord</h2>
+        <div id="answer"></div>
+        <h2 style="margin-top:2rem">Gebruikte bronnen</h2>
+        <div id="chunks"></div>
+      </main>
+      <aside>
+        <h3>Relevante documenten</h3>
+        <div id="docs"></div>
+      </aside>
+    </div>
+  </div>
+</section>
+<div class="wrap"><div id="status" role="status" aria-live="polite"></div></div>
+
+<section class="how" id="hoe">
+  <div class="wrap">
+    <h2>Hoe het werkt</h2>
+    <div class="steps">
+      <div class="step"><i>Stap 1</i><b>Stel een vraag</b><span>Schrijf je vraag in gewone taal, zoals je die aan een collega zou stellen.</span></div>
+      <div class="step"><i>Stap 2</i><b>Zoeken in de documenten</b><span>De assistent vergelijkt je vraag met de inhoud van alle geladen documenten en haalt de meest relevante fragmenten op.</span></div>
+      <div class="step"><i>Stap 3</i><b>Antwoord met bronnen</b><span>Je krijgt een antwoord waarin elke bewering verwijst naar het document en de pagina waar het vandaan komt.</span></div>
+    </div>
+  </div>
+</section>
+
+<footer id="over">
+  <div class="wrap">
+    <span id="foot-left"></span>
+    <span id="foot-right"></span>
+  </div>
+</footer>
+
+<script>
+// ---- Pas hier aan voor de demo ----
+const BRAND = "Kennisassistent";
+const HEADLINE = "Vind direct het antwoord in je documenten";
+const LEAD = "Stel een vraag en krijg een antwoord met verwijzingen naar de documenten waarop het is gebaseerd.";
+const FOOT_LEFT = "Kennisassistent · demo";
+const FOOT_RIGHT = "HZ University of Applied Sciences";
+const EXAMPLES = [
+  "Wat is corrosie?",
+  "Hoe wordt AI gebruikt voor corrosiedetectie?",
+  "Welke aanpak is gebruikt om het model te trainen?"
+];
+// -----------------------------------
+
+const $ = id => document.getElementById(id);
+const form = $("form"), q = $("q"), go = $("go"), statusEl = $("status"), results = $("results");
+
+document.title = BRAND;
+$("brand").textContent = BRAND;
+$("logo").textContent = BRAND.charAt(0);
+$("headline").textContent = HEADLINE;
+$("lead").textContent = LEAD;
+$("foot-left").textContent = FOOT_LEFT;
+$("foot-right").textContent = FOOT_RIGHT;
+
+EXAMPLES.forEach(text => {
+  const b = document.createElement("button");
+  b.type = "button"; b.className = "chip"; b.textContent = text;
+  b.onclick = () => { q.value = text; form.requestSubmit(); };
+  $("chips").append(b);
+});
+
+const clean = name => name.replace(/\.pdf$/i, "").replace(/[_-]+/g, " ");
+const el = (tag, cls, text) => {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text !== undefined) e.textContent = text;
+  return e;
+};
+
+function renderAnswer(text, max) {
+  const box = el("div", "answer");
+  text.split(/(\[\d+\]|\*\*[^*]+\*\*)/).forEach(part => {
+    const m = part.match(/^\[(\d+)\]$/);
+    if (m && +m[1] <= max) {
+      const a = el("a", "cite", m[1]);
+      a.href = "#bron-" + m[1];
+      a.title = "Naar bron " + m[1];
+      box.append(a);
+    } else if (/^\*\*[^*]+\*\*$/.test(part)) {
+      box.append(el("strong", "", part.slice(2, -2)));
+    } else {
+      box.append(document.createTextNode(part));
+    }
+  });
+  return box;
+}
+
+function renderChunks(chunks) {
+  const wrap = $("chunks");
+  wrap.replaceChildren();
+  chunks.forEach((c, i) => {
+    const card = el("div", "source");
+    card.id = "bron-" + (i + 1);
+    const head = el("div", "src-head");
+    head.append(el("span", "src-n", "[" + (i + 1) + "]"), el("span", "src-name", clean(c.source)), el("span", "src-meta", "pagina " + c.page));
+    const d = el("details");
+    d.append(el("summary", "", "Toon fragment"), el("p", "frag", c.text));
+    card.append(head, d);
+    wrap.append(card);
+  });
+}
+
+function renderDocs(files) {
+  const wrap = $("docs");
+  wrap.replaceChildren();
+  const top = files.length ? files[0].score : 1;
+  files.forEach((f, i) => {
+    const d = el("div", "doc" + (i === 0 ? " doc-top" : ""));
+    const bar = el("div", "bar");
+    const fill = el("span");
+    fill.style.width = Math.max(4, (f.score / top) * 100) + "%";
+    bar.append(fill);
+    d.append(el("div", "doc-name", clean(f.source)), bar, el("div", "doc-meta", "Score " + f.score.toFixed(2) + " · pagina " + f.pages.join(", ")));
+    wrap.append(d);
+  });
+}
+
+form.addEventListener("submit", async e => {
+  e.preventDefault();
+  const question = q.value.trim();
+  if (!question) return;
+
+  go.disabled = true;
+  results.style.display = "none";
+  statusEl.className = "dots";
+  statusEl.textContent = "Documenten doorzoeken";
+
+  try {
+    const res = await fetch("/api/ask", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question, k: 5 }),
+    });
+    if (!res.ok) throw new Error("Server gaf status " + res.status);
+    const data = await res.json();
+    const chunks = data.chunks || [];
+
+    statusEl.className = "";
+    statusEl.textContent = "";
+    $("answer").replaceChildren(
+      data.answer
+        ? renderAnswer(data.answer, chunks.length)
+        : el("div", "notice", "Er is geen AI-antwoord gegenereerd (API-key niet ingesteld). Hieronder staan de meest relevante fragmenten.")
+    );
+    renderChunks(chunks);
+    renderDocs(data.files || []);
+    results.style.display = "block";
+    results.scrollIntoView({ behavior: "smooth" });
+  } catch (err) {
+    statusEl.className = "err";
+    statusEl.textContent = "Zoeken is mislukt: " + err.message + ". Controleer of de server en Qdrant draaien en probeer het opnieuw.";
+  } finally {
+    go.disabled = false;
+  }
+});
+</script>
+</body>
+</html>
