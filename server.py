@@ -36,33 +36,44 @@ def rank_files(hits):
     return ranked
 
 
+LLM_BASE_URL = os.getenv("LLM_BASE_URL")          # bv. http://localhost:11434/v1
+LLM_MODEL = os.getenv("LLM_MODEL", "qwen2.5:7b")
+
+
 def generate(question: str, sources: list):
-    if not os.getenv("ANTHROPIC_API_KEY"):
+    if not LLM_BASE_URL:
         return None  # alleen retrieval
-    import anthropic
+    from openai import OpenAI
 
     context = "\n\n".join(
         f"[{i + 1}] ({s['source']}, p.{s['page']})\n{s['text']}"
         for i, s in enumerate(sources)
     )
-    msg = anthropic.Anthropic().messages.create(
-        model="claude-sonnet-5-5",
+    client = OpenAI(base_url=LLM_BASE_URL, api_key=os.getenv("LLM_API_KEY", "ollama"))
+    resp = client.chat.completions.create(
+        model=LLM_MODEL,
         max_tokens=1000,
-        system=(
-            "Beantwoord de vraag uitsluitend op basis van de context. "
-            "Verwijs naar bronnen als [1], [2]. "
-            "Staat het antwoord niet in de context, zeg dat dan."
-        ),
-        messages=[{"role": "user", "content": f"Context:\n{context}\n\nVraag: {question}"}],
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "Beantwoord de vraag uitsluitend op basis van de context. "
+                    "Antwoord in het Nederlands. "
+                    "Verwijs naar bronnen als [1], [2]. "
+                    "Staat het antwoord niet in de context, zeg dat dan."
+                ),
+            },
+            {"role": "user", "content": f"Context:\n{context}\n\nVraag: {question}"},
+        ],
     )
-    return msg.content[0].text
+    return resp.choices[0].message.content
 
 
 @app.post("/api/ask")
 def ask(body: Question):
     hits = retrieve(body.question, 20)  # ruim zoeken voor de bestandsranking
     return {
-        "answer": generate(body.question, hits[: body.k]),  # alleen top-k naar Claude
+        "answer": generate(body.question, hits[: body.k]), # alleen top-k naar Claude
         "files": rank_files(hits),
     }
 
