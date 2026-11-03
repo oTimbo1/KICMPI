@@ -5,7 +5,9 @@ from pathlib import Path
 
 import pymupdf as fitz
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, PointStruct, VectorParams
+from qdrant_client.models import (
+    Distance, FieldCondition, Filter, FilterSelector, MatchValue, PointStruct, VectorParams,
+)
 from sentence_transformers import SentenceTransformer
 
 COLLECTION = "docs"
@@ -33,34 +35,77 @@ def load_pdf(path: Path):
             yield page_no, text
 
 
-def ingest():
-    if client.collection_exists(COLLECTION):
-        client.delete_collection(COLLECTION)
+def create_collection():
     client.create_collection(
         COLLECTION,
         vectors_config=VectorParams(size=DIM, distance=Distance.COSINE),
     )
 
-    records = []
-    for pdf in sorted(PDF_DIR.glob("*.pdf")):
-        for page_no, text in load_pdf(pdf):
-            for i, chunk in enumerate(chunk_text(text)):
-                records.append({"source": pdf.name, "page": page_no, "chunk": i, "text": chunk})
 
-    print(f"{len(records)} chunks embedden...")
+def ensure_collection():
+    if not client.collection_exists(COLLECTION):
+        create_collection()
+
+
+def pdf_records(pdf: Path):
+    for page_no, text in load_pdf(pdf):
+        for i, chunk in enumerate(chunk_text(text)):
+            yield {"source": pdf.name, "page": page_no, "chunk": i, "text": chunk}
+
+
+def upsert_records(records, show_progress=False):
+    if not records:
+        return
     vectors = model.encode(
         [r["text"] for r in records],
         batch_size=16,
         normalize_embeddings=True,
-        show_progress_bar=True,
+        show_progress_bar=show_progress,
     )
-
     points = [
         PointStruct(id=str(uuid.uuid4()), vector=v.tolist(), payload=r)
         for v, r in zip(vectors, records)
     ]
     for i in range(0, len(points), 100):
         client.upsert(COLLECTION, points=points[i:i + 100])
+
+
+def source_filter(name: str):
+    return Filter(must=[FieldCondition(key="source", match=MatchValue(value=name))])
+
+
+def remove_pdf(name: str):
+    """Verwijdert alle chunks van één PDF uit de collectie."""
+    if client.collection_exists(COLLECTION):
+        client.delete(COLLECTION, points_selector=FilterSelector(filter=source_filter(name)))
+
+
+def index_pdf(pdf: Path) -> int:
+    """(Her)indexeert één PDF zonder de rest van de collectie te raken."""
+    ensure_collection()
+    remove_pdf(pdf.name)
+    records = list(pdf_records(pdf))
+    upsert_records(records)
+    return len(records)
+
+
+def count_chunks(name: str) -> int:
+    if not client.collection_exists(COLLECTION):
+        return 0
+    return client.count(COLLECTION, count_filter=source_filter(name), exact=True).count
+
+
+def ingest():
+    if client.collection_exists(COLLECTION):
+        client.delete_collection(COLLECTION)
+    create_collection()
+
+    records = []
+    for pdf in sorted(PDF_DIR.glob("*.pdf")):
+        records.extend(pdf_records(pdf))
+
+    print(f"{len(records)} chunks embedden...")
+    upsert_records(records, show_progress=True)
     print("Klaar.")
 
 

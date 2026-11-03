@@ -1,6 +1,10 @@
 import os
+import json
+from urllib.request import Request, urlopen
 
-from fastapi import FastAPI
+from pathlib import Path
+
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
@@ -36,35 +40,97 @@ def rank_files(hits):
     return ranked
 
 
-def generate(question: str, sources: list):
-    if not os.getenv("ANTHROPIC_API_KEY"):
-        return None  # alleen retrieval
-    import anthropic
-
+def generate(question: str, sources: list) -> str:
     context = "\n\n".join(
         f"[{i + 1}] ({s['source']}, p.{s['page']})\n{s['text']}"
         for i, s in enumerate(sources)
     )
-    msg = anthropic.Anthropic().messages.create(
-        model="claude-sonnet-5-5",
-        max_tokens=1000,
-        system=(
-            "Beantwoord de vraag uitsluitend op basis van de context. "
-            "Verwijs naar bronnen als [1], [2]. "
-            "Staat het antwoord niet in de context, zeg dat dan."
-        ),
-        messages=[{"role": "user", "content": f"Context:\n{context}\n\nVraag: {question}"}],
+    prompt = (
+        "Beantwoord de vraag uitsluitend op basis van de context. "
+        "Verwijs naar bronnen als [1], [2]. "
+        "Staat het antwoord niet in de context, zeg dat dan.\n\n"
+        f"Context:\n{context}\n\nVraag: {question}"
     )
-    return msg.content[0].text
+    payload = json.dumps(
+        {
+            "model": os.getenv("OLLAMA_MODEL", "qwen2.5:3b"),
+            "prompt": prompt,
+            "stream": False,
+        }
+    ).encode("utf-8")
+    request = Request(
+        f"{os.getenv('OLLAMA_URL', 'http://localhost:11434').rstrip('/')}/api/generate",
+        data=payload,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urlopen(request, timeout=120) as response:
+        result = json.load(response)
+    return result["response"]
 
 
 @app.post("/api/ask")
 def ask(body: Question):
     hits = retrieve(body.question, 20)  # ruim zoeken voor de bestandsranking
+    sources = hits[: body.k]
     return {
-        "answer": generate(body.question, hits[: body.k]),  # alleen top-k naar Claude
+        "answer": generate(body.question, sources),
+        "chunks": sources,
         "files": rank_files(hits),
     }
+
+
+def pdf_path(name: str) -> Path:
+    name = Path(name or "").name  # geen mappen in de bestandsnaam
+    if not name.lower().endswith(".pdf"):
+        raise HTTPException(400, "Alleen PDF-bestanden zijn toegestaan.")
+    return rag.PDF_DIR / name
+
+
+@app.get("/api/documents")
+def documents():
+    return [
+        {
+            "name": pdf.name,
+            "size": pdf.stat().st_size,
+            "modified": pdf.stat().st_mtime,
+            "chunks": rag.count_chunks(pdf.name),
+        }
+        for pdf in sorted(rag.PDF_DIR.glob("*.pdf"), key=lambda p: p.name.lower())
+    ]
+
+
+@app.post("/api/documents")
+def upload(file: UploadFile = File(...)):
+    path = pdf_path(file.filename)
+    data = file.file.read()
+    if not data.startswith(b"%PDF"):
+        raise HTTPException(400, "Dit bestand is geen geldige PDF.")
+    rag.PDF_DIR.mkdir(exist_ok=True)
+    path.write_bytes(data)
+    try:
+        chunks = rag.index_pdf(path)
+    except Exception as e:
+        raise HTTPException(500, f"Indexeren mislukt: {e}")
+    return {"name": path.name, "size": len(data), "chunks": chunks}
+
+
+@app.get("/api/documents/{name}")
+def download(name: str):
+    path = pdf_path(name)
+    if not path.exists():
+        raise HTTPException(404, "Document niet gevonden.")
+    return FileResponse(path, media_type="application/pdf", filename=path.name)
+
+
+@app.delete("/api/documents/{name}")
+def delete(name: str):
+    path = pdf_path(name)
+    if not path.exists():
+        raise HTTPException(404, "Document niet gevonden.")
+    rag.remove_pdf(path.name)
+    path.unlink()
+    return {"deleted": path.name}
 
 
 @app.get("/")

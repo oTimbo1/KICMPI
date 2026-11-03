@@ -3,4 +3,4 @@ sentence-transformers
 pymupdf
 fastapi
 uvicorn
-anthropic
+python-multipart
