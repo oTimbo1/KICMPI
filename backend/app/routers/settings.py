@@ -26,9 +26,10 @@ _KEY_MAP = {
     "asr_url": "asr_base_url",
     "asr_model": "asr_model",
     "embed_mock": "embed_mock",
+    "qdrant_dashboard_url": "qdrant_dashboard_url",
 }
 
-_URL_FIELDS = ("embedding_url", "summary_url", "vlm_url", "asr_url")
+_URL_FIELDS = ("embedding_url", "summary_url", "vlm_url", "asr_url", "qdrant_dashboard_url")
 
 
 def _to_out(eff: dict) -> SettingsOut:
@@ -42,6 +43,7 @@ def _to_out(eff: dict) -> SettingsOut:
         asr_url=eff["asr_base_url"],
         asr_model=eff["asr_model"],
         embed_mock=bool(eff["embed_mock"]),
+        qdrant_dashboard_url=str(eff["qdrant_dashboard_url"] or ""),
     )
 
 

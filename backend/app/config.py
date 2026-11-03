@@ -27,7 +27,13 @@ class EnvDefaults(BaseSettings):
     qdrant_collection: str = "kicmpi_documents"
 
     # model endpoints (defaults — overridable at runtime via Settings tab)
-    # 🔒 Port 8080 on the model system is reserved (agent server) — never use it.
+    # 🔒 Port 8080 on the model system is reserved (pre-existing non-RAG
+    # service) — never use it.
+
+    # Qdrant dashboard (built into the Qdrant container, published on the host,
+    # see docker-compose.yml). Empty = the frontend derives it from the app's
+    # own host + port 6333; set it here (or in the Settings tab) to override.
+    qdrant_dashboard_url: str = ""
     embedding_base_url: str = "http://192.168.69.20:8081"
     embedding_model: str = "bge-m3"
     embed_dims: int = 1024
@@ -61,6 +67,7 @@ OVERRIDABLE: tuple[str, ...] = (
     "asr_base_url",
     "asr_model",
     "embed_mock",
+    "qdrant_dashboard_url",
 )
 
 

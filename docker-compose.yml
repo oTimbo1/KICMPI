@@ -18,7 +18,7 @@ services:
     container_name: kicmpi-frontend
     ports:
       # Explicit 0.0.0.0 binding so the app is reachable from the LAN,
-      # not just localhost (Tom's fixed requirement for the online meeting).
+      # not just localhost.
       - "0.0.0.0:${APP_PORT:-8090}:80"
     depends_on:
       - backend
@@ -32,7 +32,8 @@ services:
       QDRANT_COLLECTION: ${QDRANT_COLLECTION:-kicmpi_documents}
       # Model endpoints — defaults from the project plan; the app's Settings
       # tab overrides these at runtime (persisted to the config volume).
-      # 🔒 Port 8080 on the model system is RESERVED (agent server) — never use it.
+      # 🔒 Port 8080 on the model system is RESERVED (pre-existing non-RAG
+      # service) — never use it.
       EMBEDDING_BASE_URL: ${EMBEDDING_BASE_URL:-http://192.168.69.20:8081}
       EMBEDDING_MODEL: ${EMBEDDING_MODEL:-bge-m3}
       EMBED_DIMS: ${EMBED_DIMS:-1024}
@@ -43,7 +44,7 @@ services:
       VLM_MODEL: ${VLM_MODEL:-qwen3-vl-8b-instruct}
       ASR_BASE_URL: ${ASR_BASE_URL:-http://192.168.69.20:8083}
       ASR_MODEL: ${ASR_MODEL:-whisper-large-v3}
-      # 1 = deterministic mock embedder (rehearsal safety net only, off by default)
+      # 1 = deterministic mock embedder (offline development fallback only, off by default)
       EMBED_MOCK: ${EMBED_MOCK:-0}
       UPLOAD_MAX_MB: ${UPLOAD_MAX_MB:-25}
       UPLOADS_DIR: /data/uploads
@@ -63,6 +64,13 @@ services:
   qdrant:
     image: qdrant/qdrant:latest
     container_name: kicmpi-qdrant
+    ports:
+      # Direct access to Qdrant's built-in dashboard + REST API
+      # (http://<host>:6333/dashboard) — project-internal tooling for
+      # inspecting the embedded chunks. This is a concept, not production:
+      # keep it on the project LAN only, same trust boundary as the app itself.
+      # The header's Qdrant status dot links here (see frontend Header.jsx).
+      - "0.0.0.0:${QDRANT_DASHBOARD_PORT:-6333}:6333"
     volumes:
       - qdrant_storage:/qdrant/storage
     healthcheck:

@@ -71,6 +71,10 @@ class StatusResponse(BaseModel):
     qdrant: EndpointStatus
     embedding: EndpointStatus
     summary: EndpointStatus
+    # Browser-reachable URL of the Qdrant dashboard ("" = let the frontend
+    # derive it from the app's own host + port 6333). The header's Qdrant
+    # status dot links here in a new tab.
+    qdrant_dashboard_url: str = ""
 
 
 class ProbeRequest(BaseModel):
@@ -97,6 +101,7 @@ class SettingsOut(BaseModel):
     asr_url: str
     asr_model: str
     embed_mock: bool
+    qdrant_dashboard_url: str = ""
 
 
 class SettingsUpdate(BaseModel):
@@ -114,3 +119,4 @@ class SettingsUpdate(BaseModel):
     asr_url: Optional[str] = None
     asr_model: Optional[str] = None
     embed_mock: Optional[bool] = None
+    qdrant_dashboard_url: Optional[str] = None

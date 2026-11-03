@@ -67,6 +67,7 @@ def status():
         qdrant=qdrant,
         embedding=embedding,
         summary=summary,
+        qdrant_dashboard_url=str(settings.get("qdrant_dashboard_url") or ""),
     )
 
 

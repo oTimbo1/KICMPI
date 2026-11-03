@@ -32,10 +32,19 @@ function StatusDots({ status }) {
   if (!status) {
     return <span className="text-xs text-kicmpi-muted">Status laden…</span>
   }
+  // Qdrant dashboard: explicit override (status/settings) or derived from the
+  // app's own host — the dashboard is published on the same host, port 6333.
+  const qdrantDashboardUrl =
+    status.qdrant_dashboard_url || `http://${window.location.hostname}:6333/dashboard`
   const items = [
     { label: 'Embeddings', ok: status.embedding?.ok },
     { label: 'Samenvatting', ok: status.summary?.ok },
-    { label: 'Qdrant', ok: status.qdrant?.ok },
+    {
+      label: 'Qdrant',
+      ok: status.qdrant?.ok,
+      href: qdrantDashboardUrl,
+      title: 'Open de Qdrant-dashboard in een nieuw tabblad (vectoren, payloads, chunks)',
+    },
   ]
   return (
     <div className="flex items-center gap-3">
@@ -47,20 +56,40 @@ function StatusDots({ status }) {
           demo-modus
         </span>
       )}
-      {items.map((it) => (
-        <span
-          key={it.label}
-          className="flex items-center gap-1.5 text-xs text-kicmpi-slate"
-          title={`${it.label}: ${it.ok ? 'verbonden' : 'niet bereikbaar'}`}
-        >
+      {items.map((it) => {
+        const dot = (
           <span
             className={`inline-block h-2.5 w-2.5 rounded-full ${
               it.ok ? 'bg-green-500' : 'bg-red-500'
             }`}
           />
+        )
+        const label = (
           <span className="hidden md:inline">{it.label}</span>
-        </span>
-      ))}
+        )
+        return it.href ? (
+          <a
+            key={it.label}
+            href={it.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex cursor-pointer items-center gap-1.5 text-xs text-kicmpi-slate hover:text-kicmpi-blue"
+            title={it.title}
+          >
+            {dot}
+            <span className="hidden underline-offset-2 hover:underline md:inline">{it.label}</span>
+          </a>
+        ) : (
+          <span
+            key={it.label}
+            className="flex items-center gap-1.5 text-xs text-kicmpi-slate"
+            title={`${it.label}: ${it.ok ? 'verbonden' : 'niet bereikbaar'}`}
+          >
+            {dot}
+            {label}
+          </span>
+        )
+      })}
     </div>
   )
 }

@@ -5,13 +5,15 @@
 #             (Dutch, citations [source, page], abstains when chunks have no answer)
 #   Source:   https://huggingface.co/Qwen/Qwen3-8B-GGUF   (Q4_K_M recommended)
 #   Endpoint: http://<this-system-ip>:8082  →  POST /v1/chat/completions (OpenAI-compatible)
-#   Needed:   v1 demo (yes) / full pipeline (yes)
-#   Port:     8082 (8080 is taken on the model system by the existing agent server)
+#   Needed:   v1 (yes) / full pipeline (yes)
+#   Port:     8082 (8080 is reserved on the model system — see MODELS.md)
 #
 cd "$(dirname "$0")"
 
 LLAMA_SERVER="${LLAMA_SERVER:-./llama.cpp/build/bin/llama-server}"
-MODEL="${MODEL:-/home/urnothim-evo-usr/AI/models/Qwen3-8B/Qwen3-8B-Q4_K_M.gguf}"
+# GGUF path on THIS machine — set via env or adjust the default below
+# (suggested layout: see MODELS.md §3).
+MODEL="${MODEL:?MODEL not set — e.g. export MODEL=~/AI/models/Qwen3-8B/Qwen3-8B-Q4_K_M.gguf (see MODELS.md §3)}"
 PORT=8082
 
 while true; do

@@ -4,12 +4,14 @@
 #   Role:     embeds Markdown chunks + user queries → dense 1024-dim vectors (Qdrant)
 #   Source:   https://huggingface.co/lm-kit/bge-m3-gguf   (f16 recommended, q8_0 fallback)
 #   Endpoint: http://<this-system-ip>:8081  →  POST /v1/embeddings (OpenAI-compatible)
-#   Needed:   v1 demo (yes) / full pipeline (yes)
+#   Needed:   v1 (yes) / full pipeline (yes)
 #
 cd "$(dirname "$0")"
 
 LLAMA_SERVER="${LLAMA_SERVER:-./llama.cpp/build/bin/llama-server}"
-MODEL="${MODEL:-/home/urnothim-evo-usr/AI/models/bge-m3/bge-m3-F16.gguf}"
+# GGUF path on THIS machine — set via env or adjust the default below
+# (suggested layout: see MODELS.md §3).
+MODEL="${MODEL:?MODEL not set — e.g. export MODEL=~/AI/models/bge-m3/bge-m3-F16.gguf (see MODELS.md §3)}"
 PORT=8081
 
 while true; do

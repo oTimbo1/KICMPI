@@ -1,8 +1,8 @@
-# Approach Plan — KicMPi RAG Web App, Concept v1 (client demo)
+# Approach Plan — KicMPi RAG Web App, Concept v1
 
-> **Status:** v1.1 — ready to execute in a dedicated session. *(v1.1, 2026-11-02: Markdown-canonical principle made explicit; **Settings tab added to scope** so the model system's IP:port can be entered in the UI; web app explicitly bound to **0.0.0.0** for LAN access; new §9 model-server prep with llama.cpp/whisper.cpp startup scripts in `model-servers/`; §11 records the resolved decisions from Tom.)*
-> **Goal:** by **tomorrow morning** (client meeting with KicMPi) we have a **simple but complete concept web app** in which we can **demonstrate the entire RAG system process**: upload a PDF → watch it get parsed/chunked/embedded/stored → ask a search query → retrieve chunks (with scores + source/page) — with the **summary step present** (wired, visible) but not yet required to work fully.
-> **Build location:** this directory (`github-repo/`). Everything software-related lives here; it will later be connected to the team's GitHub repo (Tom's task).
+> **Status:** v1.2 — implemented (execution log in §12). *(v1.1, 2026-11-02: Markdown-canonical principle made explicit; **Settings tab added to scope** so the model system's IP:port can be entered in the UI; web app explicitly bound to **0.0.0.0** for LAN access; new §9 model-server prep with llama.cpp/whisper.cpp startup scripts in `model-servers/`; §11 records the resolved decisions. v1.2, 2026-11-03: Qdrant dashboard published + linked from the header; documentation made project-focused.)*
+> **Goal:** a **simple but complete concept web app** in which we can **demonstrate the entire RAG system process**: upload a PDF → watch it get parsed/chunked/embedded/stored → ask a search query → retrieve chunks (with scores + source/page) — with the **summary step present** (wired, visible) but not yet required to work fully.
+> **Build location:** this repository. Everything software-related lives here (team GitHub repo).
 > **Companion docs:**
 > - [`docs/KICMPI_STYLE_GUIDE.md`](docs/KICMPI_STYLE_GUIDE.md) — the KicMPi website style investigation (colors, fonts, components) that the app must follow.
 > - Project root: `TOOLING_SELECTION_AND_PIPELINE.md` (locked stack + pipeline design), `SPRINT_PLAN.md` (sprint context), `sources/PROJECT_CONTEXT.md` (client & assignment context).
@@ -11,9 +11,9 @@
 
 ## 1. What "done" means (the demo promise)
 
-> **Meeting format:** online — Tom shares his screen from the system where the app runs (this session's system). The app is reached at `http://<that-systems-LAN-or-public-IP>:8090` (bound to 0.0.0.0, see §4). The model system's address is entered **in the app's Settings tab** (or pre-set via `.env`), so it can change without any file edits.
+> **Presentation format:** the concept is presented to KicMPi online, from the machine where the app runs. The app is reached at `http://<that-machine's-LAN-IP>:8090` (bound to 0.0.0.0, see §4). The model system's address is entered **in the app's Settings tab** (or pre-set via `.env`), so it can change without any file edits.
 
-The meeting demo must be able to show, **live, through the web UI only** (the client never touches files or the shell):
+The presentation must be able to show, **live, through the web UI only** (the client never touches files or the shell):
 
 1. The app is up in Docker and looks like KicMPi (branding, colors, Dutch).
 2. **Ingest:** we upload a KicMPi PDF through the UI and watch the pipeline run: *Lezen → Chunken → Embedden → Opgeslagen*, with live progress and chunk counts.
@@ -29,7 +29,7 @@ The meeting demo must be able to show, **live, through the web UI only** (the cl
 | C1 | **Whole web app runs in Docker containers only**, isolated from the host system | `docker compose` project; only the frontend port is published on the host; backend & Qdrant live on an internal Docker network; all data (uploads, vectors) in Docker volumes |
 | C2 | **Clear frontend / backend distinction** | Separate containers: React+Vite+Tailwind frontend (served by nginx) vs. Python FastAPI backend vs. Qdrant container. No shared code, REST API between FE↔BE |
 | C3 | **Models run OUTSIDE the app** (llama.cpp servers on the model system, same LAN) | The app only *calls* OpenAI-compatible endpoints via `EMBEDDING_BASE_URL` / `SUMMARY_BASE_URL` (IP:port) — defaults from env vars, **overridable at runtime in the app's Settings tab**. No model weights in the app, no GPU needed in the app |
-| C4 | **Web-app-first UX** | Everything (upload, ingest status, search, summary, delete) is doable from the browser. No file-system or CLI dependency at demo time |
+| C4 | **Web-app-first UX** | Everything (upload, ingest status, search, summary, delete) is doable from the browser. No file-system or CLI dependency at presentation time |
 | C5 | **Simple — this is concept v1** | PDF-only ingestion (text layer), no video/audio/VLM converters, no auth, no multi-user, no production hardening. Scope is cut at §3.2 |
 
 ## 3. Scope
@@ -42,11 +42,11 @@ The meeting demo must be able to show, **live, through the web UI only** (the cl
 - **Settings (model endpoints in the UI):** Settings tab + `GET/PUT /api/settings` — enter the model system's IP:port per model (embedding, summary; fields for VLM + ASR reserved for the full pipeline), persisted to a config file on a Docker volume, effective immediately; env vars remain the defaults; "Test verbinding" per endpoint (green/red feedback).
 - Search: query embedding → Qdrant top-k → chunks with score + payload metadata.
 - Summary step: **wired and present** — calls `SUMMARY_BASE_URL` (Qwen3-8B via llama-server) with the grounded Dutch prompt from the tooling doc §3.7 (answer only from chunks, cite `[source, page]`, abstain if unknown); graceful degradation when unconfigured/unreachable (chunks are never blocked on it).
-- Status endpoint + UI badges for Qdrant / embedding model / summary model connectivity (demo safety: we verify models before the client walks in).
+- Status endpoint + UI badges for Qdrant / embedding model / summary model connectivity (presentation safety: models are verified green before presenting).
 - Frontend: KicMPi-branded React SPA, **Dutch UI**, 3 views (Documenten, Zoeken, Instellingen) + header/hero/status strip (see §6).
 - Styling per `docs/KICMPI_STYLE_GUIDE.md` (blue `#1668B1`, magenta `#E5027E`, pill buttons, striped sections, Figtree font, real KicMPi logo — already in `frontend/public/kicmpi-logo.svg`).
-- README: how to start models, start the app, and run the demo script; `.env.example`.
-- Optional rehearsal safety net **only** (not a product feature, **off by default**): `EMBED_MOCK=1` → deterministic mock embedder (1024-dim) so the *whole flow* can be dry-run even if no model server is reachable (clearly labelled "demo-modus" in the status panel). The real system (real BGE-M3 + Qwen3-8B) is the deliverable — we do not rely on mock mode (resolved with Tom, see §11).
+- README: how to start models, start the app, and operate it (runbook); `.env.example`.
+- Optional offline safety net **only** (not a product feature, **off by default**): `EMBED_MOCK=1` → deterministic mock embedder (1024-dim) so the *whole flow* can be dry-run even if no model server is reachable (clearly labelled "demo-modus" in the status panel). The real system (real BGE-M3 + Qwen3-8B) is the deliverable — we do not rely on mock mode (see §11).
 
 ### 3.2 Out of scope (explicitly — next sprints)
 
@@ -67,7 +67,7 @@ Per `TOOLING_SELECTION_AND_PIPELINE.md` §3.1 (core design decision), the full s
 ### 4.2 Container topology
 
 ```
-                        HOST (demo machine)
+                         HOST (app host)
 ┌────────────────────────────────────────────────────────────────────────┐
 │  Browser ── http://localhost:8090 ──────────────┐                      │
 │                                                 │ (only published port)│
@@ -97,7 +97,7 @@ Per `TOOLING_SELECTION_AND_PIPELINE.md` §3.1 (core design decision), the full s
 | `backend` | build `backend/Dockerfile` (`python:3.12-slim`, FastAPI + uvicorn) | — (internal only) | Depends on `qdrant`; volumes `uploads` + `config` |
 | `qdrant` | `qdrant/qdrant` (current stable) | — (internal only) | Volume `qdrant_storage`; healthcheck `/healthz` |
 
-> **LAN reachability (fixed constraint from Tom):** the compose file publishes the frontend port **explicitly bound to all interfaces** — `"0.0.0.0:8090:80"` — so any device on the same LAN (or the host itself) can open the app at `http://<server-IP>:8090`. The host firewall must allow port 8090 inbound. Backend and Qdrant stay on the internal Docker network only (never published) — that keeps the isolation intact while the web UI is the single entry point.
+> **LAN reachability (fixed constraint):** the compose file publishes the frontend port **explicitly bound to all interfaces** — `"0.0.0.0:8090:80"` — so any device on the same LAN (or the host itself) can open the app at `http://<server-IP>:8090`. The host firewall must allow port 8090 inbound. The backend stays on the internal Docker network (never published). *(v1.2: Qdrant's dashboard/REST API is additionally published on `0.0.0.0:6333` as project-internal tooling for inspecting the embedded chunks — see README §1.)*
 
 **Configuration (`.env` at repo root, copied from `.env.example`)**
 
@@ -106,25 +106,26 @@ Per `TOOLING_SELECTION_AND_PIPELINE.md` §3.1 (core design decision), the full s
 | `APP_PORT` | `8090` | Published frontend port on the host |
 | `QDRANT_URL` | `http://qdrant:6333` | Internal (compose) |
 | `QDRANT_COLLECTION` | `kicmpi_documents` | Collection name |
-| `EMBEDDING_BASE_URL` | `http://192.168.69.20:8081` ← *model system (Tom's, LAN)* | BGE-M3 llama.cpp server |
+| `EMBEDDING_BASE_URL` | `http://192.168.69.20:8081` ← *model system (LAN)* | BGE-M3 llama.cpp server |
 | `EMBEDDING_MODEL` | `bge-m3` | Model name passed in the request |
 | `EMBED_DIMS` | `1024` | Vector size (BGE-M3 dense) |
 | `SUMMARY_BASE_URL` | `http://192.168.69.20:8082` | Qwen3-8B llama-server (8082 — **8080 is reserved on the model system, never use it**) |
 | `SUMMARY_MODEL` | `qwen3-8b` | Model name |
 | `VLM_BASE_URL` | `http://192.168.69.20:8084` | Qwen3-VL-8B (reserved — full pipeline, unused in v1) |
 | `ASR_BASE_URL` | `http://192.168.69.20:8083` | whisper wrapper (reserved — full pipeline, unused in v1) |
-| `EMBED_MOCK` | `0` | `1` = deterministic mock embedder (demo safety net, see §3.1) |
+| `EMBED_MOCK` | `0` | `1` = deterministic mock embedder (offline safety net, see §3.1) |
 | `UPLOAD_MAX_MB` | `25` | Upload limit (PDFs) |
+| `QDRANT_DASHBOARD_PORT` | `6333` | Host port for the Qdrant dashboard + REST API (v1.2) |
 
-> **IP note:** the model system's IP is **`192.168.69.20`** (Tom's machine on the team LAN; verified reachable from the demo server on 2026-11-02). It can be set here *or* in the app's Settings tab (which overrides these defaults at runtime and persists to a volume — that's the recommended way at the meeting). Compose also maps `host.docker.internal` → host-gateway on the backend, so `http://host.docker.internal:8081` works too if the models ever run on the *same* machine as the app.
+> **IP note:** the model system's IP is **`192.168.69.20`** (on the team LAN; verified reachable from the app host on 2026-11-02). It can be set here *or* in the app's Settings tab (which overrides these defaults at runtime and persists to a volume — that's the recommended way). Compose also maps `host.docker.internal` → host-gateway on the backend, so `http://host.docker.internal:8081` works too if the models ever run on the *same* machine as the app.
 >
-> 🔒 **Port policy (Tom, 2026-11-02): port `8080` on the model system is RESERVED** (the agent's llama.cpp server). The RAG system — web app, scripts, defaults, future work — must **never** use port 8080 on that system. RAG ports there: 8081 (embedding), 8082 (summary), 8083 (whisper, later), 8084 (VLM, later).
+> 🔒 **Port policy (2026-11-02): port `8080` on the model system is RESERVED** (pre-existing non-RAG service). The RAG system — web app, scripts, defaults, future work — must **never** use port 8080 on that system. RAG ports there: 8081 (embedding), 8082 (summary), 8083 (whisper, later), 8084 (VLM, later).
 
 **File tree to create**
 
 ```
 github-repo/
-├── README.md                        # setup + model commands + demo script
+├── README.md                        # project docs + operation runbook
 ├── docker-compose.yml
 ├── .env.example
 ├── .gitignore
@@ -135,8 +136,8 @@ github-repo/
 ├── model-servers/                   # ← copy this folder to the MODEL system (not part of the Docker app)
 │   ├── MODELS.md                    # which models, HF sources, quants, ports, VRAM budget, health checks
 │   ├── start-bge-m3.sh              # llama.cpp --embedding (port 8081)
-│   ├── start-qwen3-8b.sh            # llama-server (port 8080)
-│   ├── start-qwen3-vl.sh            # llama-server + mmproj (port 8082)
+│   ├── start-qwen3-8b.sh            # llama-server (port 8082)
+│   ├── start-qwen3-vl.sh            # llama-server + mmproj (port 8084)
 │   ├── whisper_server.py            # minimal HTTP wrapper around whisper.cpp (port 8083)
 │   └── start-whisper.sh             # runner for the wrapper (same restart-loop style)
 ├── frontend/
@@ -265,14 +266,14 @@ System prompt (Dutch, per tooling doc §3.7): *"Beantwoord de vraag uitsluitend 
 
 **Behavioural rules:** all fetches through `api/client.js`; every async state has loading/empty/error variants; no console errors on normal flows; app usable end-to-end even with zero documents (empty states) and with models offline (red dots + graceful messages).
 
-## 7. Demo plan for the client meeting (tomorrow morning)
+## 7. Presentation guide (client meeting)
 
-**Prerequisites (rehearse today + re-verify ~1 h before the meeting):**
-1. On the **model system**: BGE-M3 + Qwen3-8B servers up (scripts `model-servers/start-bge-m3.sh` + `start-qwen3-8b.sh`, ports **8081** + **8082**, both bound `0.0.0.0`). ✅ *Already done on 2026-11-02 — re-verify only.*
-2. On the **demo server** (this session's system): `docker compose up -d --build`; verify from *another* device on the LAN that `http://<demo-server-ip>:8090` opens (0.0.0.0 binding works, firewall open).
+**Prerequisites (prepare in advance + re-verify shortly before presenting):**
+1. On the **model system**: BGE-M3 + Qwen3-8B servers up (scripts `model-servers/start-bge-m3.sh` + `start-qwen3-8b.sh`, ports **8081** + **8082**, both bound `0.0.0.0`). ✅ *Done on 2026-11-02 — re-verify only.*
+2. On the **app host**: `docker compose up -d --build`; verify from *another* device on the LAN that `http://<app-host-ip>:8090` opens (0.0.0.0 binding works, firewall open).
 3. In the app's **Settings tab**: enter the model system's IP once, "Test verbinding" → all green. (Or pre-set `.env` — same effect.)
 4. All 3 header dots green (or amber demo-modus only if `EMBED_MOCK=1` — not the plan).
-5. 2–3 KicMPi **text-layer** PDFs (Tom downloads them from the website) ready in a folder next to the screen; one pre-ingested so the document list isn't empty.
+5. 2–3 KicMPi **text-layer** PDFs (downloaded from the website) ready at hand; one pre-ingested so the document list isn't empty.
 
 **Demo script (~8–10 min, live):**
 1. Open app → 15 s: "Dit is de concept-kennisassistent; alles draait lokaal in Docker, de modellen draaien buiten op het model-systeem — geen data verlaat het gebouw (AVG)."
@@ -282,8 +283,8 @@ System prompt (Dutch, per tooling doc §3.7): *"Beantwoord de vraag uitsluitend 
 5. Close: what's next (full pipeline with video/audio, evaluation, tuning) — one slide or 30 s of talk, no new scope promises.
 
 **Fallbacks (in order):**
-- Model server down at meeting time → status dots show it honestly; if `EMBED_MOCK=1` is enabled the flow still runs end-to-end (labelled demo-modus); summary panel in its "unavailable" state.
-- Worst case (Docker dies or the network hiccups during the online meeting) → pre-recorded screen capture of the rehearsal run (record during the P5 rehearsal).
+- Model server down at presentation time → status dots show it honestly; if `EMBED_MOCK=1` is enabled the flow still runs end-to-end (labelled demo-modus); summary panel in its "unavailable" state.
+- Worst case (Docker dies or the network hiccups during the online meeting) → pre-recorded screen capture of a full run.
 - Scanned/OCR-less PDF picked by mistake → clear in-app error; only bring verified text-layer PDFs.
 
 ## 8. Execution plan (for the implementation session)
@@ -296,14 +297,14 @@ Ordered phases; each has a **checkpoint** — if a checkpoint fails, fix before 
 | **P1 — Ingestion backend** | `pdf.py`, `chunking.py`, `store.py`, `state.py`, documents router + background ingestion; Qdrant upserts | ~1.5 h | `curl` upload of a sample PDF → `GET /documents/{id}` walks `parsing→chunking→embedding→stored` (embedding: mock or real) with correct chunk count; Qdrant scroll shows payloads |
 | **P2 — Search + summary + settings wiring** | `embedding.py` (real + mock), `summary.py`, search router, status router, **settings store + router** (config file on `config` volume, overrides env, effective immediately) | ~1.5 h | `POST /search` returns scored chunks with page/source (real model if up, else mock); summary returns `ok` when the model is up, `unconfigured/error` otherwise — chunks always returned; `PUT /settings` changes the embedding endpoint and the next request uses it |
 | **P3 — Frontend** | api client; Header/Hero/status dots; DocumentsView (+upload, live progress, list, delete); SearchView (+results, filters, SummaryPanel); **SettingsView** (endpoint fields for all 4 models, per-endpoint "Test verbinding", save, demo-modus toggle); empty/loading/error states | ~3 h | Full flow in the browser: upload → watch progress → search → chunks + summary panel; **Settings tab: enter the model system's IP → test turns green → search works**; models-off state renders gracefully (red dots, no crashes) |
-| **P4 — Integration & runbook** | `.env` polish, README (model commands, compose commands, demo script), edge cases (no-text-layer PDF, empty corpus, 25 MB+ upload rejected, duplicate re-ingest), final `docker compose down && up` restart test (Qdrant persistence), **LAN test from a second device**: open `http://<demo-server-ip>:8090` in another machine's browser and run one search | ~1 h | README works copy-paste on a clean machine; demo script executed once fully; app demonstrably reachable over the LAN, not just localhost |
+| **P4 — Integration & runbook** | `.env` polish, README (model commands, compose commands, operation runbook), edge cases (no-text-layer PDF, empty corpus, 25 MB+ upload rejected, duplicate re-ingest), final `docker compose down && up` restart test (Qdrant persistence), **LAN test from a second device**: open `http://<app-host-ip>:8090` in another machine's browser and run one search | ~1 h | README works copy-paste on a clean machine; §7 script executed once fully; app demonstrably reachable over the LAN, not just localhost |
 | **P5 — Rehearsal** | dress rehearsal of §7 script with a real KicMPi PDF; fix wobbles; **record screen capture** as the worst-case fallback | ~30 min | 10-min demo runs without any manual intervention; recording saved |
 
 **Cut line (if time runs out):** P3 minimal = upload + doc list + search + chunk cards + summary panel placeholder (no delete, no doc filter, no top-k select). P4/P5 are non-negotiable (runbook + rehearsal) — they are what make the demo safe.
 
-## 9. Model servers — what must run on the model system (prep for Tom)
+## 9. Model servers — what must run on the model system
 
-All models come from **Hugging Face in GGUF format** and run on Tom's model system (same LAN as the demo server). The web app reaches them **only via IP:port** (entered in the app's Settings tab or pre-set in `.env`). Ready-to-use startup scripts (same restart-loop style as the team's existing llama.cpp script) are in [`model-servers/`](model-servers/) — copy that folder to the model system and adjust the model paths.
+All models come from **Hugging Face in GGUF format** and run on the project's model system (same LAN as the app host). The web app reaches them **only via IP:port** (entered in the app's Settings tab or pre-set in `.env`). Ready-to-use startup scripts (simple restart-loop style) are in [`model-servers/`](model-servers/) — copy that folder to the model system and point each script at its model file (`MODEL` env var).
 
 | # | Model | Role in the RAG system | Runtime | Hugging Face source (GGUF) | Quant (recommended) | ≈ Size | Port |
 |---|---|---|---|---|---|---|---|
@@ -312,13 +313,13 @@ All models come from **Hugging Face in GGUF format** and run on Tom's model syst
 | 3 | **Qwen3-VL-8B-Instruct** | Image-to-text — PDF pages + video frames → Markdown (full pipeline, later sprint) | llama.cpp `llama-server --mmproj` | [`Qwen/Qwen3-VL-8B-Instruct-GGUF`](https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct-GGUF) (+ its mmproj file) | **Q4_K_M** + mmproj **Q8_0** (f16 fallback) | ≈6–8 GB incl. mmproj | **8084** |
 | 4 | **whisper-large-v3** | Audio-to-text — video audio + MP3 → timestamped SRT (full pipeline, later sprint) | **whisper.cpp** — *sister project of llama.cpp, same GGUF format, but a different binary with no HTTP server of its own* → minimal wrapper provided | [`ggerganov/whisper.cpp` models](https://huggingface.co/ggerganov/whisper.cpp/tree/main/models) (`ggml-large-v3`) | **q8_0** (f16 for max accuracy) | ≈1.6 GB (runs fine on CPU) | **8083** |
 
-**What v1 (tomorrow) needs: #1 + #2 only** (≈7 GB VRAM). #3 + #4 belong to the full pipeline (later sprints) — prepare them now if the hardware allows, but they are **not** demo blockers.
+**What v1 needs: #1 + #2 only** (≈7 GB VRAM). #3 + #4 belong to the full pipeline (later sprints) — prepare them now if the hardware allows, but they are **not** v1 blockers.
 
-> ⚑ **Port note (2026-11-02, real layout on the model system `192.168.69.20`):** **port 8080 is RESERVED there** (existing agent llama.cpp server) and must never be used by the RAG system. So **Qwen3-8B (summary) runs on 8082** and BGE-M3 (embedding) on 8081; the VLM (later sprint) is assigned **8084** (whisper keeps 8083). Both servers are **up and verified reachable** from the demo server on 2026-11-02. The web app picks all of this up from its Settings tab, so any future port change is a UI-only matter.
+> ⚑ **Port note (2026-11-02, real layout on the model system `192.168.69.20`):** **port 8080 is RESERVED there** (pre-existing non-RAG service) and must never be used by the RAG system. So **Qwen3-8B (summary) runs on 8082** and BGE-M3 (embedding) on 8081; the VLM (later sprint) is assigned **8084** (whisper keeps 8083). Both v1 servers were **up and verified reachable** on 2026-11-02. The web app picks all of this up from its Settings tab, so any future port change is a UI-only matter.
 
 **VRAM budget (all four at once, one GPU):** ≈13–16 GB → comfortable on a 24 GB card; workable on 16 GB if whisper runs on CPU (it's fine there) and the VLM is only needed at ingestion time — per tooling doc §3.9 the VLM (ingestion) and summary LLM (query time) rarely overlap.
 
-**Health checks** (from the demo server or any LAN machine — the Settings tab's "Test verbinding" does exactly this):
+**Health checks** (from the app host or any LAN machine — the Settings tab's "Test verbinding" does exactly this):
 
 ```bash
 curl http://<model-ip>:8081/v1/models    # BGE-M3    (embedding)
@@ -329,33 +330,33 @@ curl http://<model-ip>:8083/v1/models    # whisper wrapper (audio-to-text, later
 
 > Note (kept consistent with the tooling doc's decision log): whisper runs in **whisper.cpp, not llama.cpp** — the "GGUF everywhere" constraint holds at the format/ecosystem level (same ggml family), and both runtimes are named separately in all docs.
 
-## 10. Risks & mitigations (demo-day)
+## 10. Risks & mitigations (presentation-day)
 
 | Risk | Likelihood | Mitigation |
 |---|---|---|
-| Model servers not reachable at meeting time (network/IP/`host.docker.internal` on Linux) | Medium | P2 checkpoint verifies reachability **today**; `.env` takes a plain IP too; `EMBED_MOCK` fallback; pre-recorded capture |
-| Demo PDFs lack a text layer (scans) | Medium | Verify each candidate PDF with PyMuPDF today; bring 3+ candidates; in-app error message is a feature, not a bug |
-| First `docker compose up` too slow at the venue | Low-Med | Containers pre-started before clients arrive (`up -d`); images pre-pulled today |
-| Slow first inference (model warm-up) makes the demo feel broken | Low-Med | Pre-warm: run one test query before the meeting; show the search after ~2 s is normal |
-| Scope creep in the meeting (client asks for X now) | High (known client risk) | v1 scope is fixed by §3.2; feedback is *recorded* for the next sprint, not implemented |
+| Model servers not reachable at presentation time (network/IP/`host.docker.internal` on Linux) | Medium | P2 checkpoint verifies reachability; `.env` takes a plain IP too; `EMBED_MOCK` fallback; pre-recorded capture |
+| Demo PDFs lack a text layer (scans) | Medium | Verify each candidate PDF with PyMuPDF first; keep 3+ candidates; in-app error message is a feature, not a bug |
+| First `docker compose up` too slow at presentation time | Low-Med | Containers pre-started before the client joins (`up -d`); images pre-pulled |
+| Slow first inference (model warm-up) makes the demo feel broken | Low-Med | Pre-warm: run one test query before presenting; a search completing after ~2 s is normal |
+| Scope creep in the meeting (client asks for X now) | High (known client risk) | v1 scope is fixed by §3.2; feedback is *recorded* for the next iteration, not implemented |
 | Frontend polish eats the whole day | Medium | Cut line above; branding tokens are ready so styling is fast, not exploratory |
 
-## 11. Decisions & answers (resolved with Tom, 2026-11-02)
+## 11. Decisions & answers (resolved 2026-11-02)
 
-- **Model servers:** they run on Tom's system (LAN IP **192.168.69.20**, same LAN as the demo server); the meeting is **online** (screen share). The model system's IP is entered via the app's **Settings tab** (or `.env`), so a changing IP is a non-event → Settings view added to scope (§3.1, §5.1, §6 View 3). **BGE-M3 (:8081) + Qwen3-8B (:8082) downloaded, running, and verified reachable from the demo server (2026-11-02).** 🔒 **Port 8080 on the model system is reserved (agent server) and must never be used by the RAG system.**
-- **Demo PDFs:** Tom downloads a few KicMPi PDFs from the website for demo + development → runbook keeps the text-layer verification step for each file.
-- **Where the app runs:** on this session's system (the demo server); it must be **system-independent** → Docker-only + explicit `0.0.0.0:8090` binding, reachable from the LAN (§4.2).
-- **Mock fallback:** accepted as an optional, **off-by-default** rehearsal safety net only — the real system (BGE-M3 + Qwen3-8B) is the deliverable and must work on its own; we do not rely on mock mode.
+- **Model servers:** they run on the project's model system (LAN IP **192.168.69.20**, same LAN as the app host); the client meeting is **online** (screen share). The model system's IP is entered via the app's **Settings tab** (or `.env`), so a changing IP is a non-event → Settings view added to scope (§3.1, §5.1, §6 View 3). **BGE-M3 (:8081) + Qwen3-8B (:8082) downloaded, running, and verified reachable from the app host (2026-11-02).** 🔒 **Port 8080 on the model system is reserved (pre-existing non-RAG service) and must never be used by the RAG system.**
+- **Demo PDFs:** a few KicMPi PDFs are downloaded from the website for the concept + development → runbook keeps the text-layer verification step for each file.
+- **Where the app runs:** on the app host; it must be **system-independent** → Docker-only + explicit `0.0.0.0:8090` binding, reachable from the LAN (§4.2).
+- **Mock fallback:** accepted as an optional, **off-by-default** offline safety net only — the real system (BGE-M3 + Qwen3-8B) is the deliverable and must work on its own; we do not rely on mock mode.
 - **Font:** decided — **Figtree** (free, closest available to the licensed Typekit font Prometo); one-line Tailwind swap later if the client ever provides a Prometo licence.
 
 **Assumptions (flag if wrong):** UI language = Dutch; single demo user, no auth; demo PDFs are text-based (to be verified); the summary step being *present-but-limited* is acceptable to the client (agreed in the requirement).
 
 ---
 
-## 12. Execution log (2026-11-03, implementation session)
+## 12. Execution log
 
-**All phases P0–P5 executed; every checkpoint passed.** The app is running on the demo
-server (Docker, `0.0.0.0:8090`, also reachable at `http://192.168.69.12:8090`) with two
+**v1 implementation (2026-11-03) — all phases P0–P5 executed; every checkpoint passed.**
+The app runs on the app host (Docker, `0.0.0.0:8090`, reachable over the LAN) with two
 KicMPi PDFs pre-ingested (14 chunks), all three status dots green, and the models
 pre-warmed via a test search.
 
@@ -364,16 +365,16 @@ pre-warmed via a test search.
 | P0 scaffold | ✅ `docker compose up --build` → branded shell at :8090, `/api/health` ok through nginx, Qdrant healthy (bash `/dev/tcp` healthcheck — the qdrant image has no curl/wget) |
 | P1 ingestion | ✅ real upload walks `parsing→chunking→embedding→stored`; canonical Markdown stored in `uploads/{doc_id}.md`; Qdrant payloads verified. **Fix:** Qdrant point ids are 128-bit UUIDs — the 256-bit sha256 `chunk_id` is encoded via its first 128 bits (full id kept in payload) |
 | P2 search/summary/settings | ✅ scored chunks + page/source; grounded Dutch summaries with `[bestandsnaam, p. N]` citations (citation format made explicit in the system prompt after the model echoed the placeholder); `PUT /settings` effective immediately + persisted to `config` volume. **Fix:** API field names (`embedding_url`) now mapped to store keys (`embedding_base_url`) — overrides were silently dropped before |
-| P3 frontend | ✅ all 3 views + header/hero/dots; drag-&-drop upload with live 4-step progress; search with top-k + doc filter; SummaryPanel always present; Settings tab with per-endpoint "Test verbinding" (✓ latency / ✗ reason) + demo-modus toggle. Zero console errors in rehearsal |
-| P4 integration & runbook | ✅ README written; edge cases verified: scanned PDF → clear Dutch OCR error, 26 MB upload → 413, non-PDF → 415, empty corpus → friendly message, `down && up` restart → data persists, LAN binding verified via `http://192.168.69.12:8090` |
-| P5 rehearsal | ✅ full demo flow run in the browser with the real KicMPi PDFs (screenshots taken); models warm. *Not done:* screen **recording** of the run (no capture tool in this session) — if Tom wants the worst-case fallback video, record one 10-min run before the meeting |
+| P3 frontend | ✅ all 3 views + header/hero/dots; drag-&-drop upload with live 4-step progress; search with top-k + doc filter; SummaryPanel always present; Settings tab with per-endpoint "Test verbinding" (✓ latency / ✗ reason) + demo-modus toggle. Zero console errors in the test run |
+| P4 integration & runbook | ✅ README written; edge cases verified: scanned PDF → clear Dutch OCR error, 26 MB upload → 413, non-PDF → 415, empty corpus → friendly message, `down && up` restart → data persists, LAN binding verified from a second device |
+| P5 rehearsal | ✅ full demo flow run in the browser with the real KicMPi PDFs (screenshots taken); models warm. *Not done:* screen **recording** of the run (no capture tool in that session) |
 
 **⚠ Key finding (affects the model system):** the BGE-M3 llama.cpp server was started with
 `--batch-size 512`; llama.cpp then rejects any single input > 512 **tokens** with
 `HTTP 500 "input is too large to process"`. Dutch technical text tokenizes at up to ~2.3
 tokens/word, so chunks of ~230+ words were rejected. Two-part fix:
-1. `model-servers/start-bge-m3.sh` now sets `--batch-size 8192` — **Tom should restart the
-   embedding server with the updated script** (one-liner; the web app works either way).
+1. `model-servers/start-bge-m3.sh` now sets `--batch-size 8192` — **restart the embedding
+   server with the updated script** (one-liner; the web app works either way).
 2. The backend now degrades adaptively: when the server says "too large", the batch is
    retried per-text and offending texts are recursively split at a sentence boundary with
    segment-vector averaging (L2-normalised) — robust for any server batch size.
@@ -381,11 +382,11 @@ tokens/word, so chunks of ~230+ words were rejected. Two-part fix:
 Chunk targets were set to 200–350 words ≈ 280–480 real tokens (inside the plan's 256–512
 token band and inside the current server limit, so most chunks embed natively).
 
-**Demo state at handover:** stack running; corpus = `20251211_-_kennismaking_met_123atex.eu_-_waterstof.pdf`
+**State at handover:** stack running; corpus = `20251211_-_kennismaking_met_123atex.eu_-_waterstof.pdf`
 (4 chunks) + `20251111_kic_mpi_-_gacs_presentatie_1.pdf` (10 chunks); settings point at
-`192.168.69.20:8081/8082`; mock mode off. Morning checklist: README §9.
+`192.168.69.20:8081/8082`; mock mode off.
 
-**v1.1 UX addendum (2026-11-03, requested by Tom before the 10.30 meeting) — done & verified:**
+**v1.1 UX addendum (2026-11-03, UX request before the client presentation) — done & verified:**
 1. **Summary above chunks** in Zoeken: count line → *AI-samenvatting* panel → chunk list
    (the summary is based on the chunks listed below it).
 2. **Chunks collapsed by default**: header row shows expand-arrow, rank, score bar, page chip
@@ -396,5 +397,21 @@ token band and inside the current server limit, so most chunks embed natively).
    (`Content-Disposition: inline`, browser PDF viewer). The original PDF is already kept on the
    uploads volume per document (`uploads/{doc_id}.pdf`) — no new storage needed.
 All three verified in the browser (DOM order, collapsed state, expand click, new-tab PDF load);
-zero console errors. Tom restarted the BGE-M3 server with `--batch-size 8192` on the model
+zero console errors. The BGE-M3 server was restarted with `--batch-size 8192` on the model
 system; corpus re-ingested fresh (14 points).
+
+**v1.2 addendum (2026-11-03) — done & verified:**
+1. **Qdrant dashboard published** on `0.0.0.0:6333` (`QDRANT_DASHBOARD_PORT` in
+   `docker-compose.yml` / `.env`) — direct, project-internal access to the built-in dashboard +
+   REST API for inspecting the embedded chunks (this is a concept, not production; LAN only).
+2. **Qdrant status dot in the header is now a link** → opens the dashboard in a new tab. The
+   URL is the app's own host + port 6333 by default, overridable via `QDRANT_DASHBOARD_URL`
+   (env / Settings tab, persisted to the `config` volume); also exposed in `GET /api/status`
+   and `GET/PUT /api/settings`.
+3. **Documentation made project-focused:** README rewritten as project documentation (no
+   time-bound demo/rehearsal content); all personal references and local-setup details removed
+   from repo docs and comments; model-server scripts now require `MODEL` explicitly (no
+   machine-specific paths in the repo).
+4. **Repo moved to the team GitHub clone** (`github-repo/KICMPI/`); the full stack was rebuilt
+   from the repo copy and re-verified end-to-end (health, status, documents, ingest, search,
+   summary, PDF file serving, delete, dashboard, header link).

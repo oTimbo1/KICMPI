@@ -80,6 +80,7 @@ export default function SettingsView({ onSaved }) {
         asr_url: form.asr_url,
         asr_model: form.asr_model,
         embed_mock: form.embed_mock,
+        qdrant_dashboard_url: form.qdrant_dashboard_url,
       })
       setSaved(true)
       if (onSaved) onSaved()
@@ -115,6 +116,33 @@ export default function SettingsView({ onSaved }) {
             />
           ))}
         </div>
+      </section>
+
+      <section className="rounded-lg border border-kicmpi-line bg-white p-4">
+        <h3 className="font-bold text-kicmpi-blue">Qdrant-dashboard</h3>
+        <p className="mb-3 mt-0.5 text-xs text-kicmpi-muted">
+          Directe toegang tot de vectoren (chunks, payloads, scores) in de Qdrant-dashboard op
+          poort 6333. Laat leeg om het adres automatisch af te leiden van deze app (zelfde host).
+        </p>
+        <label className="mb-1 block text-xs font-semibold text-kicmpi-slate">
+          Dashboard-URL (leeg = automatisch)
+        </label>
+        <input
+          className="input-pill font-mono text-sm"
+          value={form.qdrant_dashboard_url || ''}
+          placeholder="http://192.168.69.20:6333/dashboard"
+          onChange={(e) => setField('qdrant_dashboard_url', e.target.value)}
+        />
+        {form.qdrant_dashboard_url && (
+          <a
+            className="mt-2 inline-block text-sm font-semibold text-kicmpi-blue underline-offset-2 hover:underline"
+            href={form.qdrant_dashboard_url}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Open in nieuw tabblad »
+          </a>
+        )}
       </section>
 
       <section className="rounded-lg bg-kicmpi-stripes p-5">

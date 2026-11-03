@@ -6,7 +6,7 @@
 #   Source:   https://huggingface.co/ggerganov/whisper.cpp/tree/main/models
 #             (ggml-large-v3.q8_0.bin recommended; f16 ggml-large-v3.bin for max accuracy)
 #   Endpoint: http://<this-system-ip>:8083  →  POST /v1/transcribe, GET /v1/models
-#   Needed:   v1 demo (NO) / full pipeline (yes)
+#   Needed:   v1 (NO) / full pipeline (yes)
 #   Extra:    pip install fastapi uvicorn python-multipart
 #
 cd "$(dirname "$0")"

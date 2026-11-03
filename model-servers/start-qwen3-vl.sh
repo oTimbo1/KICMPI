@@ -7,7 +7,7 @@
 #   Source:   https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct-GGUF
 #             (model Q4_K_M + mmproj Q8_0, f16 fallback)
 #   Endpoint: http://<this-system-ip>:8084
-#   Needed:   v1 demo (NO — v1 uses the text-layer PDF path) / full pipeline (yes)
+#   Needed:   v1 (NO — v1 uses the text-layer PDF path) / full pipeline (yes)
 #   Port:     8084 (8082 is used by the Qwen3-8B summary server)
 #
 cd "$(dirname "$0")"

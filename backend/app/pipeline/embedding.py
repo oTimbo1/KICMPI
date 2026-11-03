@@ -1,5 +1,5 @@
 """Embedding via an OpenAI-compatible endpoint (BGE-M3 on llama.cpp),
-or a deterministic mock embedder (``EMBED_MOCK=1``) as rehearsal safety net.
+or a deterministic mock embedder (``EMBED_MOCK=1``) as an offline development fallback.
 
 The endpoint URL/model come from the effective settings (Settings tab
 overrides env), so changes are effective immediately — every call re-reads
