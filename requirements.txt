@@ -1,6 +1,0 @@
-qdrant-client
-sentence-transformers
-pymupdf
-fastapi
-uvicorn
-anthropic

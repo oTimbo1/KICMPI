@@ -1,25 +1,80 @@
-services:
-  qdrant:
-    image: qdrant/qdrant
-    ports:
-      - "6333:6333"
-    volumes:
-      - qdrant_data:/qdrant/storage
+# KicMPi RAG — concept web app (v1)
+#
+# Topology (see PLAN_WEBAPP_V1.md §4.2):
+#   frontend (nginx + React build) ──/api proxy──► backend (FastAPI) ──► qdrant
+#   Frontend port published on 0.0.0.0 (LAN access); backend & qdrant stay
+#   on the internal Docker network only. Models run OUTSIDE the app and are
+#   reached via IP:port (env defaults below, overridable in the app's
+#   Settings tab — that persists to the `config` volume).
+#
+# Start:  cp .env.example .env   (optional)
+#         docker compose up -d --build
 
-  app:
-    build: .
+name: kicmpi-rag
+
+services:
+  frontend:
+    build: ./frontend
+    container_name: kicmpi-frontend
     ports:
-      - "8000:8000"
-    environment:
-      QDRANT_URL: http://qdrant:6333
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      HF_HOME: /cache/huggingface
-    volumes:
-      - ./pdfs:/app/pdfs
-      - hf_cache:/cache/huggingface
+      # Explicit 0.0.0.0 binding so the app is reachable from the LAN,
+      # not just localhost (Tom's fixed requirement for the online meeting).
+      - "0.0.0.0:${APP_PORT:-8090}:80"
     depends_on:
-      - qdrant
+      - backend
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    container_name: kicmpi-backend
+    environment:
+      QDRANT_URL: ${QDRANT_URL:-http://qdrant:6333}
+      QDRANT_COLLECTION: ${QDRANT_COLLECTION:-kicmpi_documents}
+      # Model endpoints — defaults from the project plan; the app's Settings
+      # tab overrides these at runtime (persisted to the config volume).
+      # 🔒 Port 8080 on the model system is RESERVED (agent server) — never use it.
+      EMBEDDING_BASE_URL: ${EMBEDDING_BASE_URL:-http://192.168.69.20:8081}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-bge-m3}
+      EMBED_DIMS: ${EMBED_DIMS:-1024}
+      SUMMARY_BASE_URL: ${SUMMARY_BASE_URL:-http://192.168.69.20:8082}
+      SUMMARY_MODEL: ${SUMMARY_MODEL:-qwen3-8b}
+      # Reserved for the full pipeline (later sprints) — stored, unused in v1
+      VLM_BASE_URL: ${VLM_BASE_URL:-http://192.168.69.20:8084}
+      VLM_MODEL: ${VLM_MODEL:-qwen3-vl-8b-instruct}
+      ASR_BASE_URL: ${ASR_BASE_URL:-http://192.168.69.20:8083}
+      ASR_MODEL: ${ASR_MODEL:-whisper-large-v3}
+      # 1 = deterministic mock embedder (rehearsal safety net only, off by default)
+      EMBED_MOCK: ${EMBED_MOCK:-0}
+      UPLOAD_MAX_MB: ${UPLOAD_MAX_MB:-25}
+      UPLOADS_DIR: /data/uploads
+      CONFIG_DIR: /data/config
+    # Lets the app reach models running on the HOST (same machine) via
+    # http://host.docker.internal:<port> — the normal case is a plain LAN IP.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - uploads:/data/uploads
+      - config:/data/config
+    depends_on:
+      qdrant:
+        condition: service_healthy
+    restart: unless-stopped
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: kicmpi-qdrant
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    healthcheck:
+      # Qdrant has no /healthz client in the image; an open port means ready.
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/6333' || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+    restart: unless-stopped
 
 volumes:
-  qdrant_data:
-  hf_cache:
+  uploads:          # PDFs, extracted Markdown, docs.json manifest
+  config:           # settings.json (Settings-tab overrides)
+  qdrant_storage:   # vector data (persists across restarts)

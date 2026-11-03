@@ -1,0 +1,46 @@
+/* KicMPi concept app — Tailwind + brand tokens (docs/KICMPI_STYLE_GUIDE.md §8) */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  body {
+    @apply bg-white font-sans text-kicmpi-ink;
+  }
+}
+
+@layer components {
+  /* Signature KicMPi diagonal-striped section (reproduces section--striped-grey) */
+  .bg-kicmpi-stripes {
+    background: repeating-linear-gradient(
+      45deg,
+      #fcfcfc 0px,
+      #fcfcfc 6px,
+      #ebebeb 6px,
+      #ebebeb 8px
+    );
+  }
+
+  /* Pill buttons (the signature shape — style guide §4) */
+  .btn-pill {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-6 py-2 font-semibold transition-colors;
+  }
+  .btn-primary {
+    @apply btn-pill bg-kicmpi-blue text-white hover:bg-kicmpi-navy disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-white {
+    @apply btn-pill bg-white text-kicmpi-magenta hover:bg-kicmpi-stripeB;
+  }
+  .btn-outline {
+    @apply btn-pill border-2 border-kicmpi-blue text-kicmpi-blue hover:bg-kicmpi-blue hover:text-white disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  /* Pill inputs */
+  .input-pill {
+    @apply w-full rounded-full border border-kicmpi-line bg-white px-5 py-2.5 text-kicmpi-ink outline-none placeholder:text-kicmpi-muted focus:border-kicmpi-blue;
+  }
+}

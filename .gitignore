@@ -1,5 +1,18 @@
-﻿.venv/
-__pycache__/
+# local environment (contains the model-system IP)
 .env
-qdrant_storage/
-pdfs/*.pdf
+
+# node / frontend
+node_modules/
+frontend/dist/
+
+# python
+__pycache__/
+*.pyc
+.venv/
+
+# local data (Docker volumes are the source of truth)
+data/
+
+# misc
+.DS_Store
+*.log
